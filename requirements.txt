@@ -1,0 +1,7 @@
+paho-mqtt
+numpy
+sounddevice
+requests
+flask
+black
+flask_socketio
