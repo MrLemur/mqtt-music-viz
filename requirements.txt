@@ -1,7 +1,8 @@
-paho-mqtt
-numpy
-sounddevice
-requests
-flask
-black
-flask_socketio
+flask>=3.0.0
+flask-socketio>=5.3.0
+paho-mqtt>=1.6.0
+sounddevice>=0.4.6
+numpy>=1.24.0
+requests>=2.0.0
+pyyaml>=6.0
+black>=23.0.0

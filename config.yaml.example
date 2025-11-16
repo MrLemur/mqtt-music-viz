@@ -1,0 +1,12 @@
+mqtt:
+  host: 10.0.100.153
+  port: 1883
+  username: mqtt-viz
+  password: your_password_here
+
+audio:
+  buffer_size: 2048
+  sample_rate: 44100
+  channels: 1
+  min_volume: 0.005
+  beat_threshold: 0.01

@@ -46,7 +46,7 @@ devices = [
         "type": "zigbee",
         "enabled": True,
         "mode": "reactive",  # 'reactive' or 'flash'
-        "flash_color": "255,0,0",  # Color for flash mode
+        "flash_colour": "255,0,0",  # Colour for flash mode
         "freq_ranges": [{"min": 20, "max": 20000}],  # Multiple ranges
     },
     {
@@ -56,7 +56,7 @@ devices = [
         "type": "zigbee",
         "enabled": True,
         "mode": "reactive",  # 'reactive' or 'flash'
-        "flash_color": "255,0,0",  # Color for flash mode
+        "flash_colour": "255,0,0",  # Colour for flash mode
         "freq_ranges": [{"min": 20, "max": 20000}],  # Multiple ranges
     }
 ]
@@ -279,7 +279,7 @@ def run():
                 # Handle different modes
                 if device['mode'] == 'flash':
                     # Flash mode: turn on, will be turned off by timeout
-                    colour = device.get('flash_color', '255,255,255')
+                      colour = device.get('flash_colour', '255,255,255')
                     
                     client.publish(
                         device["topic"], 
@@ -297,13 +297,13 @@ def run():
                     log_and_emit('info', f'{device["name"]}: FLASH (freq: {pitch:.0f}Hz)')
                     
                     socketio.emit('device_state', {
-                        'device_id': device_id,
-                        'device_name': device['name'],
-                        'state': 'flash',
-                        'colour': colour,
-                        'hex': convert_to_hex(colour),
-                        'pitch': float(pitch),
-                        'volume': float(volume)
+                      'device_id': device_id,
+                      'device_name': device['name'],
+                      'state': 'flash',
+                      'colour': colour,
+                      'hex': convert_to_hex(colour),
+                      'pitch': float(pitch),
+                      'volume': float(volume)
                     })
                     
                 else:  # reactive mode
@@ -330,14 +330,14 @@ def run():
                     )
                     
                     socketio.emit('device_state', {
-                        'device_id': device_id,
-                        'device_name': device['name'],
-                        'state': 'on',
-                        'colour': colour,
-                        'hex': convert_to_hex(colour),
-                        'name': colour_dict["colour"],
-                        'pitch': float(pitch),
-                        'volume': float(volume)
+                      'device_id': device_id,
+                      'device_name': device['name'],
+                      'state': 'on',
+                      'colour': colour,
+                      'hex': convert_to_hex(colour),
+                      'name': colour_dict["colour"],
+                      'pitch': float(pitch),
+                      'volume': float(volume)
                     })
                     
                     last_colours[device_id] = colour
@@ -416,7 +416,7 @@ def add_device():
         'type': data.get('type', 'zigbee'),
         'enabled': data.get('enabled', True),
         'mode': data.get('mode', 'reactive'),
-        'flash_color': data.get('flash_color', '255,255,255'),
+        'flash_colour': data.get('flash_colour', data.get('flash_color', '255,255,255')),
         'freq_ranges': data.get('freq_ranges', [{'min': 20, 'max': 20000}]),
     }
     with devices_lock:
@@ -439,7 +439,7 @@ def update_device(device_id):
             'type': data.get('type', device['type']),
             'enabled': data.get('enabled', device['enabled']),
             'mode': data.get('mode', device.get('mode', 'reactive')),
-            'flash_color': data.get('flash_color', device.get('flash_color', '255,255,255')),
+            'flash_colour': data.get('flash_colour', data.get('flash_color', device.get('flash_colour', '255,255,255'))),
             'freq_ranges': data.get('freq_ranges', device['freq_ranges']),
         })
     
@@ -479,7 +479,7 @@ def index():
 <html>
 <head>
   <meta content="width=device-width, initial-scale=1" name="viewport"/>
-  <title>Music Visualizer Control</title>
+  <title>Music Visualiser Control</title>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -805,12 +805,12 @@ def index():
       background: #3a3a3a;
     }
     
-    .color-picker-wrapper {
+    .colour-picker-wrapper {
       display: flex;
       gap: 10px;
       align-items: center;
     }
-    .color-picker-wrapper input[type="color"] {
+    .colour-picker-wrapper input[type="color"] {
       width: 60px;
       height: 40px;
       border: none;
@@ -820,7 +820,7 @@ def index():
   </style>
 </head>
 <body>
-  <h1>🎵 Music Visualizer</h1>
+  <h1>🎵 Music Visualiser</h1>
   
   <div class="grid-2">
     <button class="btn btn-start" onclick="start()">▶ Start</button>
@@ -847,7 +847,7 @@ def index():
   </div>
   
   <div class="control-group">
-    <h3>Live Visualization</h3>
+    <h3>Live Visualisation</h3>
     <div class="devices-visual" id="devices-visual">
       <p style="color: #888;">No devices configured</p>
     </div>
@@ -921,8 +921,8 @@ def index():
         <div class="mode-selector">
           <label>
             <input type="radio" name="mode" value="reactive" checked>
-            <span style="display: block; padding: 10px; border-radius: 4px; border: 2px solid transparent;">
-              🌈 Reactive<br><small>Change colors on beat</small>
+              <span style="display: block; padding: 10px; border-radius: 4px; border: 2px solid transparent;">
+              🌈 Reactive<br><small>Change colours on beat</small>
             </span>
           </label>
           <label>
@@ -933,11 +933,11 @@ def index():
           </label>
         </div>
         
-        <div id="flash-color-section" style="display: none;">
-          <h4>Flash Color</h4>
-          <div class="color-picker-wrapper">
-            <input type="color" id="flash-color-picker" value="#ff0000">
-            <input type="text" id="flash-color-rgb" value="255,0,0" placeholder="R,G,B">
+        <div id="flash-colour-section" style="display: none;">
+          <h4>Flash Colour</h4>
+          <div class="colour-picker-wrapper">
+            <input type="color" id="flash-colour-picker" value="#ff0000">
+            <input type="text" id="flash-colour-rgb" value="255,0,0" placeholder="R,G,B">
           </div>
         </div>
         
@@ -1070,7 +1070,7 @@ def index():
               
               return `
                 <div class="device-circle">
-                  ${d.mode === 'flash' ? '<div class="circle-mode flash-mode">FLASH</div>' : '<div class="circle-mode">COLOR</div>'}
+                  ${d.mode === 'flash' ? '<div class="circle-mode flash-mode">FLASH</div>' : '<div class="circle-mode">COLOUR</div>'}
                   <div class="circle" id="circle-${d.id}">
                     <div class="circle-name">${d.name}</div>
                     <div class="circle-freq">${freqText}</div>
@@ -1124,7 +1124,7 @@ def index():
       document.getElementById('device-id').value = '';
       document.getElementById('device-enabled').checked = true;
       document.querySelector('input[name="mode"][value="reactive"]').checked = true;
-      document.getElementById('flash-color-section').style.display = 'none';
+      document.getElementById('flash-colour-section').style.display = 'none';
       currentFreqRanges = [{min: 20, max: 20000}];
       renderFreqRanges();
       document.getElementById('device-modal').classList.add('show');
@@ -1145,12 +1145,12 @@ def index():
           document.getElementById('device-enabled').checked = device.enabled;
           
           document.querySelector(`input[name="mode"][value="${device.mode}"]`).checked = true;
-          document.getElementById('flash-color-section').style.display = device.mode === 'flash' ? 'block' : 'none';
+          document.getElementById('flash-colour-section').style.display = device.mode === 'flash' ? 'block' : 'none';
           
-          if (device.flash_color) {
-            document.getElementById('flash-color-rgb').value = device.flash_color;
-            const hex = rgbToHex(device.flash_color);
-            document.getElementById('flash-color-picker').value = hex;
+          if (device.flash_colour) {
+            document.getElementById('flash-colour-rgb').value = device.flash_colour;
+            const hex = rgbToHex(device.flash_colour);
+            document.getElementById('flash-colour-picker').value = hex;
           }
           
           currentFreqRanges = device.freq_ranges || [{min: 20, max: 20000}];
@@ -1219,19 +1219,19 @@ def index():
     // Mode change handler
     document.addEventListener('change', (e) => {
       if (e.target.name === 'mode') {
-        const flashSection = document.getElementById('flash-color-section');
+        const flashSection = document.getElementById('flash-colour-section');
         flashSection.style.display = e.target.value === 'flash' ? 'block' : 'none';
       }
     });
     
-    // Color picker sync
+    // Colour picker sync
     document.addEventListener('input', (e) => {
-      if (e.target.id === 'flash-color-picker') {
-        document.getElementById('flash-color-rgb').value = hexToRgb(e.target.value);
-      } else if (e.target.id === 'flash-color-rgb') {
+      if (e.target.id === 'flash-colour-picker') {
+        document.getElementById('flash-colour-rgb').value = hexToRgb(e.target.value);
+      } else if (e.target.id === 'flash-colour-rgb') {
         try {
           const hex = rgbToHex(e.target.value);
-          document.getElementById('flash-color-picker').value = hex;
+          document.getElementById('flash-colour-picker').value = hex;
         } catch (err) {}
       }
     });
@@ -1249,7 +1249,7 @@ def index():
         type: document.getElementById('device-type').value,
         enabled: document.getElementById('device-enabled').checked,
         mode: mode,
-        flash_color: mode === 'flash' ? document.getElementById('flash-color-rgb').value : '255,255,255',
+        flash_colour: mode === 'flash' ? document.getElementById('flash-colour-rgb').value : '255,255,255',
         freq_ranges: currentFreqRanges
       };
       
@@ -1289,7 +1289,7 @@ def index():
 
 if __name__ == '__main__':
     try:
-        log_and_emit('info', 'Music Visualizer starting...')
+        log_and_emit('info', 'Music Visualiser starting...')
         socketio.run(app, host='0.0.0.0', port=8888, debug=False, allow_unsafe_werkzeug=True)
     finally:
         go = False

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <title>Music Visualiser Control</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <h1>🎵 Music Visualiser</h1>
+
+    <div class="grid-2">
+      <button class="btn btn-start" onclick="start()">▶ Start</button>
+      <button class="btn btn-stop" onclick="stop()">⏹ Stop</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-value" id="beats">0</div>
+        <div class="stat-label">Beats Detected</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="messages">0</div>
+        <div class="stat-label">Messages Sent</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="frequency">0</div>
+        <div class="stat-label">Current Frequency (Hz)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="status">Stopped</div>
+        <div class="stat-label">Status</div>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h3>Live Visualisation</h3>
+      <div class="devices-visual" id="devices-visual">
+        <p style="color: #888">No devices configured</p>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        "
+      >
+        <h3>Devices</h3>
+        <button class="btn btn-add" onclick="showAddDevice()">
+          + Add Device
+        </button>
+      </div>
+      <div id="devices-list"></div>
+    </div>
+
+    <div class="control-group">
+      <h3>Settings</h3>
+
+      <details style="margin-bottom: 15px">
+        <summary
+          style="
+            cursor: pointer;
+            font-weight: bold;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+          "
+        >
+          🔌 MQTT Broker Settings
+        </summary>
+        <div style="padding: 10px 0">
+          <label>
+            MQTT Host:
+            <input type="text" id="mqtt-host" placeholder="10.0.100.153" />
+          </label>
+          <label>
+            MQTT Port:
+            <input
+              type="number"
+              id="mqtt-port"
+              placeholder="1883"
+              min="1"
+              max="65535"
+            />
+          </label>
+          <label>
+            MQTT Username (optional):
+            <input type="text" id="mqtt-username" placeholder="mqtt-viz" />
+          </label>
+          <label>
+            MQTT Password (optional):
+            <input type="password" id="mqtt-password" placeholder="••••••••" />
+          </label>
+          <button
+            class="btn btn-add"
+            onclick="updateMQTTSettings()"
+            style="width: 100%; margin-top: 10px"
+            title="Requires reconnection - will poll until available"
+          >
+            Apply MQTT Settings
+          </button>
+        </div>
+      </details>
+
+      <details style="margin-bottom: 15px">
+        <summary
+          style="
+            cursor: pointer;
+            font-weight: bold;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+          "
+        >
+          🎤 Audio Settings
+        </summary>
+        <div style="padding: 10px 0">
+          <label>
+            Buffer Size:
+            <select id="audio-buffer-size">
+              <option value="1024">1024</option>
+              <option value="2048" selected>2048</option>
+              <option value="4096">4096</option>
+            </select>
+          </label>
+          <label>
+            Sample Rate:
+            <select id="audio-sample-rate">
+              <option value="22050">22050 Hz</option>
+              <option value="44100" selected>44100 Hz</option>
+              <option value="48000">48000 Hz</option>
+            </select>
+          </label>
+          <label>
+            Channels:
+            <select id="audio-channels">
+              <option value="1" selected>Mono (1)</option>
+              <option value="2">Stereo (2)</option>
+            </select>
+          </label>
+          <button
+            class="btn btn-add"
+            onclick="updateAudioSettings()"
+            style="width: 100%; margin-top: 10px"
+            title="Requires audio restart - will poll until available"
+          >
+            Apply Audio Settings
+          </button>
+        </div>
+      </details>
+
+      <label>
+        <input type="checkbox" id="debug" onchange="updateConfig()" /> Debug
+        Logging
+      </label>
+      <label>
+        Min Publish Interval: <span id="interval-val">0.1</span>s
+        <input
+          type="range"
+          id="interval"
+          min="0.05"
+          max="0.5"
+          step="0.05"
+          value="0.1"
+          onchange="updateConfig()"
+        />
+      </label>
+      <label>
+        Beat Threshold: <span id="threshold-val">0.01</span>
+        <input
+          type="range"
+          id="threshold"
+          min="0.001"
+          max="0.1"
+          step="0.001"
+          value="0.01"
+          onchange="updateConfig()"
+        />
+      </label>
+      <label>
+        Min Volume: <span id="volume-val">0.005</span>
+        <input
+          type="range"
+          id="volume"
+          min="0.001"
+          max="0.05"
+          step="0.001"
+          value="0.005"
+          onchange="updateConfig()"
+        />
+      </label>
+      <label>
+        Flash Duration: <span id="flash-val">0.3</span>s
+        <input
+          type="range"
+          id="flash"
+          min="0.1"
+          max="2"
+          step="0.1"
+          value="0.3"
+          onchange="updateConfig()"
+        />
+      </label>
+      <button
+        class="btn btn-add"
+        onclick="saveConfigToFile()"
+        style="margin-top: 20px; width: 100%"
+        title="Save current devices and settings to config.yaml"
+      >
+        💾 Save Configuration to YAML
+      </button>
+    </div>
+
+    <div class="control-group">
+      <h3>Log</h3>
+      <div id="log-container"></div>
+    </div>
+
+    <!-- Device Modal -->
+    <div id="device-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title">Add Device</h3>
+          <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <form id="device-form" onsubmit="saveDevice(event)">
+          <input type="hidden" id="device-id" />
+          <label>
+            Device Name:
+            <input type="text" id="device-name" required />
+          </label>
+          <label>
+            MQTT Topic:
+            <input
+              type="text"
+              id="device-topic"
+              placeholder="zigbee2mqtt/Device Name/set"
+              required
+            />
+          </label>
+          <label>
+            Type:
+            <select id="device-type">
+              <option value="zigbee">Zigbee</option>
+              <option value="tasmota">Tasmota</option>
+            </select>
+          </label>
+          <label>
+            <input type="checkbox" id="device-enabled" checked /> Enabled
+          </label>
+
+          <h4>Mode</h4>
+          <div class="mode-selector">
+            <label>
+              <input type="radio" name="mode" value="reactive" checked />
+              <span
+                >🌈 Reactive<br /><small>Change colours on beat</small></span
+              >
+            </label>
+            <label>
+              <input type="radio" name="mode" value="flash" />
+              <span>⚡ Flash<br /><small>Pulse on/off on beat</small></span>
+            </label>
+          </div>
+
+          <div id="flash-colour-section" style="display: none">
+            <h4>Flash Colour</h4>
+            <label>
+              <input
+                type="checkbox"
+                id="flash-random"
+                onchange="toggleFlashColourPicker()"
+              />
+              Use Random Colour
+            </label>
+            <div id="flash-colour-picker-section">
+              <div class="colour-picker-wrapper">
+                <input type="color" id="flash-colour-picker" value="#ff0000" />
+                <input
+                  type="text"
+                  id="flash-colour-rgb"
+                  value="255,0,0"
+                  placeholder="R,G,B"
+                />
+              </div>
+            </div>
+          </div>
+
+          <h4>Frequency Ranges</h4>
+          <div class="freq-presets">
+            <button
+              type="button"
+              class="preset-btn"
+              onclick="addFreqPreset('sub_bass')"
+            >
+              + Sub Bass
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              onclick="addFreqPreset('bass')"
+            >
+              + Bass
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              onclick="addFreqPreset('low_mid')"
+            >
+              + Low Mid
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              onclick="addFreqPreset('mid')"
+            >
+              + Mid
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              onclick="addFreqPreset('high_mid')"
+            >
+              + High Mid
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              onclick="addFreqPreset('presence')"
+            >
+              + Presence
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              onclick="addFreqPreset('brilliance')"
+            >
+              + Brilliance
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              onclick="addFreqPreset('full')"
+            >
+              + Full
+            </button>
+          </div>
+          <div id="freq-ranges-list" class="freq-ranges-list"></div>
+          <button
+            type="button"
+            class="btn-add"
+            style="width: 100%; margin-top: 10px"
+            onclick="addFreqRange()"
+          >
+            + Add Custom Range
+          </button>
+
+          <button type="submit" class="btn btn-start" style="margin-top: 20px">
+            Save Device
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
