@@ -9,9 +9,10 @@
   <body>
     <h1>🎵 Music Visualiser</h1>
 
-    <div class="grid-2">
-      <button class="btn btn-start" onclick="start()">▶ Start</button>
-      <button class="btn btn-stop" onclick="stop()">⏹ Stop</button>
+    <div>
+      <button class="btn btn-toggle" id="toggle-btn" onclick="toggleSystem()">
+        ▶ Start
+      </button>
     </div>
 
     <div class="stats">
@@ -31,6 +32,26 @@
         <div class="stat-value" id="status">Stopped</div>
         <div class="stat-label">Status</div>
       </div>
+    </div>
+
+    <div class="control-group">
+      <h3>Audio Monitor</h3>
+      <canvas
+        id="audio-canvas"
+        width="800"
+        height="200"
+        style="width: 100%; height: 200px; background: #000; border-radius: 8px"
+      ></canvas>
+      <p
+        style="
+          text-align: center;
+          color: #888;
+          font-size: 10pt;
+          margin-top: 5px;
+        "
+      >
+        Real-time audio input visualization
+      </p>
     </div>
 
     <div class="control-group">
@@ -204,6 +225,10 @@
           onchange="updateConfig()"
         />
       </label>
+      <label>
+        <input type="checkbox" id="flash-guard" onchange="updateConfig()" checked />
+        Flash Guard Enabled
+      </label>
       <button
         class="btn btn-add"
         onclick="saveConfigToFile()"
@@ -251,6 +276,30 @@
           <label>
             <input type="checkbox" id="device-enabled" checked /> Enabled
           </label>
+          <label>
+            Brightness: <span id="device-brightness-val">155</span>
+            <input
+              type="range"
+              id="device-brightness"
+              min="1"
+              max="255"
+              step="1"
+              value="155"
+              oninput="updateDeviceBrightness()"
+            />
+          </label>
+          <label>
+            Flash Cooldown: <span id="device-flash-cooldown-val">0.0</span>s
+            <input
+              type="range"
+              id="device-flash-cooldown"
+              min="0"
+              max="2"
+              step="0.1"
+              value="0"
+              oninput="updateDeviceFlashCooldown()"
+            />
+          </label>
 
           <h4>Mode</h4>
           <div class="mode-selector">
@@ -290,73 +339,69 @@
           </div>
 
           <h4>Frequency Ranges</h4>
-          <div class="freq-presets">
-            <button
-              type="button"
-              class="preset-btn"
-              onclick="addFreqPreset('sub_bass')"
-            >
-              + Sub Bass
-            </button>
-            <button
-              type="button"
-              class="preset-btn"
-              onclick="addFreqPreset('bass')"
-            >
-              + Bass
-            </button>
-            <button
-              type="button"
-              class="preset-btn"
-              onclick="addFreqPreset('low_mid')"
-            >
-              + Low Mid
-            </button>
-            <button
-              type="button"
-              class="preset-btn"
-              onclick="addFreqPreset('mid')"
-            >
-              + Mid
-            </button>
-            <button
-              type="button"
-              class="preset-btn"
-              onclick="addFreqPreset('high_mid')"
-            >
-              + High Mid
-            </button>
-            <button
-              type="button"
-              class="preset-btn"
-              onclick="addFreqPreset('presence')"
-            >
-              + Presence
-            </button>
-            <button
-              type="button"
-              class="preset-btn"
-              onclick="addFreqPreset('brilliance')"
-            >
-              + Brilliance
-            </button>
-            <button
-              type="button"
-              class="preset-btn"
-              onclick="addFreqPreset('full')"
-            >
-              + Full
-            </button>
+          <p style="font-size: 11pt; color: #888; margin: 5px 0 10px 0">
+            Select which frequencies this device responds to
+          </p>
+          <div class="freq-toggles">
+            <label class="freq-toggle">
+              <input type="checkbox" value="sub_bass" />
+              <span>Sub Bass<br /><small>20-60 Hz</small></span>
+            </label>
+            <label class="freq-toggle">
+              <input type="checkbox" value="bass" />
+              <span>Bass<br /><small>60-250 Hz</small></span>
+            </label>
+            <label class="freq-toggle">
+              <input type="checkbox" value="low_mid" />
+              <span>Low Mid<br /><small>250-500 Hz</small></span>
+            </label>
+            <label class="freq-toggle">
+              <input type="checkbox" value="mid" />
+              <span>Mid<br /><small>500-2k Hz</small></span>
+            </label>
+            <label class="freq-toggle">
+              <input type="checkbox" value="high_mid" />
+              <span>High Mid<br /><small>2k-4k Hz</small></span>
+            </label>
+            <label class="freq-toggle">
+              <input type="checkbox" value="presence" />
+              <span>Presence<br /><small>4k-6k Hz</small></span>
+            </label>
+            <label class="freq-toggle">
+              <input type="checkbox" value="brilliance" />
+              <span>Brilliance<br /><small>6k-20k Hz</small></span>
+            </label>
+            <label class="freq-toggle">
+              <input type="checkbox" value="full" />
+              <span>Full Range<br /><small>20-20k Hz</small></span>
+            </label>
           </div>
-          <div id="freq-ranges-list" class="freq-ranges-list"></div>
-          <button
-            type="button"
-            class="btn-add"
-            style="width: 100%; margin-top: 10px"
-            onclick="addFreqRange()"
-          >
-            + Add Custom Range
-          </button>
+
+          <details style="margin-top: 15px">
+            <summary
+              style="
+                cursor: pointer;
+                font-weight: bold;
+                padding: 8px;
+                background: #2a2a2a;
+                border-radius: 4px;
+                font-size: 11pt;
+              "
+            >
+              🔧 Advanced: Custom Frequency Ranges
+            </summary>
+            <div style="padding: 10px 0">
+              <div id="freq-ranges-list" class="freq-ranges-list"></div>
+              <button
+                type="button"
+                class="btn-add"
+                style="width: 100%; margin-top: 10px"
+                onclick="addFreqRange()"
+              >
+                + Add Custom Range
+              </button>
+            </div>
+          </details>
 
           <button type="submit" class="btn btn-start" style="margin-top: 20px">
             Save Device

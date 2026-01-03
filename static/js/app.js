@@ -39,6 +39,11 @@ socket.on('device_state', (data) => {
 
 socket.on('devices_updated', loadDevices);
 
+// Audio spectrum visualization
+socket.on('audio_spectrum', (data) => {
+  drawSpectrum(data.spectrum);
+});
+
 // Socket connection status handlers
 socket.on('connect', () => {
   console.log('WebSocket connected');
@@ -146,12 +151,34 @@ function updateDeviceCircle(deviceId, state) {
 }
 
 // Control functions
-function start() {
-  fetch('/api/start', { method: 'POST' });
+function toggleSystem() {
+  const btn = document.getElementById('toggle-btn');
+  const isRunning = btn.classList.contains('running');
+  
+  const endpoint = isRunning ? '/api/stop' : '/api/start';
+  
+  btn.disabled = true;
+  fetch(endpoint, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      updateToggleButton(data.running);
+      btn.disabled = false;
+    })
+    .catch(err => {
+      console.error('Toggle failed:', err);
+      btn.disabled = false;
+    });
 }
 
-function stop() {
-  fetch('/api/stop', { method: 'POST' });
+function updateToggleButton(isRunning) {
+  const btn = document.getElementById('toggle-btn');
+  if (isRunning) {
+    btn.classList.add('running');
+    btn.textContent = '⏹ Stop';
+  } else {
+    btn.classList.remove('running');
+    btn.textContent = '▶ Start';
+  }
 }
 
 function updateConfig() {
@@ -160,6 +187,7 @@ function updateConfig() {
   const threshold = parseFloat(document.getElementById('threshold').value);
   const volume = parseFloat(document.getElementById('volume').value);
   const flash = parseFloat(document.getElementById('flash').value);
+  const flashGuardEnabled = document.getElementById('flash-guard').checked;
   
   document.getElementById('interval-val').textContent = interval.toFixed(2);
   document.getElementById('threshold-val').textContent = threshold.toFixed(3);
@@ -174,7 +202,8 @@ function updateConfig() {
       min_publish_interval: interval,
       beat_threshold: threshold,
       min_volume: volume,
-      flash_duration: flash
+      flash_duration: flash,
+      flash_guard_enabled: flashGuardEnabled
     })
   });
 }
@@ -386,6 +415,7 @@ function loadDevices() {
             <div class="device-info">
               <strong>Topic:</strong> ${d.topic}<br>
               <strong>Type:</strong> ${d.type}<br>
+              <strong>Brightness:</strong> ${d.brightness || 155}<br>
               <strong>Mode:</strong> ${d.mode === 'flash' ? '⚡ Flash' : '🌈 Reactive'}<br>
               <strong>Frequency:</strong> ${freqText}
             </div>
@@ -400,11 +430,21 @@ function showAddDevice() {
   document.getElementById('device-form').reset();
   document.getElementById('device-id').value = '';
   document.getElementById('device-enabled').checked = true;
+  document.getElementById('device-brightness').value = 155;
+  document.getElementById('device-brightness-val').textContent = '155';
+  document.getElementById('device-flash-cooldown').value = 0;
+  document.getElementById('device-flash-cooldown-val').textContent = '0.0';
   document.querySelector('input[name="mode"][value="reactive"]').checked = true;
   document.getElementById('flash-colour-section').style.display = 'none';
   document.getElementById('flash-random').checked = false;
   document.getElementById('flash-colour-picker-section').style.display = 'block';
-  currentFreqRanges = [{min: 20, max: 20000}];
+  currentFreqRanges = [];
+  
+  // Uncheck all frequency toggles
+  document.querySelectorAll('.freq-toggles input[type="checkbox"]').forEach(cb => {
+    cb.checked = false;
+  });
+  
   renderFreqRanges();
   document.getElementById('device-modal').classList.add('show');
 }
@@ -422,6 +462,12 @@ function editDevice(id) {
       document.getElementById('device-topic').value = device.topic;
       document.getElementById('device-type').value = device.type;
       document.getElementById('device-enabled').checked = device.enabled;
+      const brightness = device.brightness || 155;
+      document.getElementById('device-brightness').value = brightness;
+      document.getElementById('device-brightness-val').textContent = brightness;
+      const flashCooldown = device.flash_cooldown || 0;
+      document.getElementById('device-flash-cooldown').value = flashCooldown;
+      document.getElementById('device-flash-cooldown-val').textContent = flashCooldown.toFixed(1);
       
       document.querySelector(`input[name="mode"][value="${device.mode}"]`).checked = true;
       document.getElementById('flash-colour-section').style.display = device.mode === 'flash' ? 'block' : 'none';
@@ -437,7 +483,33 @@ function editDevice(id) {
         document.getElementById('flash-colour-picker').value = hex;
       }
       
-      currentFreqRanges = device.freq_ranges || [{min: 20, max: 20000}];
+      currentFreqRanges = device.freq_ranges || [];
+      
+      // Update toggle checkboxes based on device frequency ranges
+      document.querySelectorAll('.freq-toggles input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+      });
+      
+      // Check toggles that match presets
+      const nonPresetRanges = [];
+      currentFreqRanges.forEach(range => {
+        let matchedPreset = false;
+        for (const [key, preset] of Object.entries(freqPresets)) {
+          if (preset.min === range.min && preset.max === range.max) {
+            const checkbox = document.querySelector(`.freq-toggles input[value="${key}"]`);
+            if (checkbox) checkbox.checked = true;
+            matchedPreset = true;
+            break;
+          }
+        }
+        if (!matchedPreset) {
+          nonPresetRanges.push(range);
+        }
+      });
+      
+      // Only custom ranges in the advanced section
+      currentFreqRanges = nonPresetRanges;
+      
       renderFreqRanges();
       document.getElementById('device-modal').classList.add('show');
     });
@@ -458,17 +530,8 @@ function addFreqRange() {
   renderFreqRanges();
 }
 
-function addFreqPreset(preset) {
-  const freq = freqPresets[preset];
-  currentFreqRanges.push({min: freq.min, max: freq.max});
-  renderFreqRanges();
-}
-
 function removeFreqRange(index) {
   currentFreqRanges.splice(index, 1);
-  if (currentFreqRanges.length === 0) {
-    currentFreqRanges = [{min: 20, max: 20000}];
-  }
   renderFreqRanges();
 }
 
@@ -515,6 +578,16 @@ function toggleFlashColourPicker() {
   pickerSection.style.display = flashRandom ? 'none' : 'block';
 }
 
+function updateDeviceBrightness() {
+  const brightness = document.getElementById('device-brightness').value;
+  document.getElementById('device-brightness-val').textContent = brightness;
+}
+
+function updateDeviceFlashCooldown() {
+  const cooldown = parseFloat(document.getElementById('device-flash-cooldown').value);
+  document.getElementById('device-flash-cooldown-val').textContent = cooldown.toFixed(1);
+}
+
 // Colour picker sync
 document.addEventListener('input', (e) => {
   if (e.target.id === 'flash-colour-picker') {
@@ -534,16 +607,37 @@ function saveDevice(e) {
   const mode = document.querySelector('input[name="mode"]:checked').value;
   const flashRandom = document.getElementById('flash-random').checked;
   
+  // Collect frequency ranges from toggles
+  const freqRanges = [];
+  
+  // Get checked preset toggles
+  document.querySelectorAll('.freq-toggles input[type="checkbox"]:checked').forEach(cb => {
+    const preset = freqPresets[cb.value];
+    if (preset) {
+      freqRanges.push({min: preset.min, max: preset.max});
+    }
+  });
+  
+  // Add custom ranges
+  freqRanges.push(...currentFreqRanges);
+  
+  // If no ranges selected, default to full range
+  if (freqRanges.length === 0) {
+    freqRanges.push({min: 20, max: 20000});
+  }
+  
   const data = {
     id: id || undefined,
     name: document.getElementById('device-name').value,
     topic: document.getElementById('device-topic').value,
     type: document.getElementById('device-type').value,
     enabled: document.getElementById('device-enabled').checked,
+    brightness: parseInt(document.getElementById('device-brightness').value, 10),
     mode: mode,
     flash_colour: mode === 'flash' ? document.getElementById('flash-colour-rgb').value : '255,255,255',
     flash_random: mode === 'flash' ? flashRandom : false,
-    freq_ranges: currentFreqRanges
+    flash_cooldown: parseFloat(document.getElementById('device-flash-cooldown').value),
+    freq_ranges: freqRanges
   };
   
   const method = id ? 'PUT' : 'POST';
@@ -570,6 +664,7 @@ setInterval(() => {
       document.getElementById('messages').textContent = data.messages_sent;
       document.getElementById('frequency').textContent = Math.round(data.current_frequency);
       document.getElementById('status').textContent = data.running ? 'Running' : 'Stopped';
+      updateToggleButton(data.running);
     });
 }, 1000);
 
@@ -598,6 +693,7 @@ function loadConfigSettings() {
         document.getElementById('threshold').value = data.runtime.beat_threshold || 0.01;
         document.getElementById('volume').value = data.runtime.min_volume || 0.005;
         document.getElementById('flash').value = data.runtime.flash_duration || 0.3;
+        document.getElementById('flash-guard').checked = data.runtime.flash_guard_enabled !== false;
         
         // Update display values
         document.getElementById('interval-val').textContent = (data.runtime.min_publish_interval || 0.1).toFixed(2);
@@ -612,3 +708,49 @@ function loadConfigSettings() {
 // Load devices and config on startup
 loadDevices();
 loadConfigSettings();
+
+// Audio visualization canvas setup
+const canvas = document.getElementById('audio-canvas');
+const ctx = canvas.getContext('2d');
+let lastSpectrum = [];
+
+function drawSpectrum(spectrum) {
+  if (!spectrum || spectrum.length === 0) return;
+  
+  lastSpectrum = spectrum;
+  
+  // Clear canvas
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw spectrum bars
+  const barWidth = canvas.width / spectrum.length;
+  const barGap = 1;
+  
+  for (let i = 0; i < spectrum.length; i++) {
+    const value = spectrum[i];
+    const barHeight = value * canvas.height * 0.9;
+    const x = i * barWidth;
+    const y = canvas.height - barHeight;
+    
+    // Create gradient for bars
+    const gradient = ctx.createLinearGradient(0, y, 0, canvas.height);
+    gradient.addColorStop(0, '#00ff88');
+    gradient.addColorStop(0.5, '#4488ff');
+    gradient.addColorStop(1, '#ff4444');
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, barWidth - barGap, barHeight);
+  }
+  
+  // Draw frequency labels
+  ctx.fillStyle = '#888';
+  ctx.font = '10px monospace';
+  ctx.fillText('20 Hz', 5, canvas.height - 5);
+  ctx.fillText('Low', canvas.width * 0.25, canvas.height - 5);
+  ctx.fillText('Mid', canvas.width * 0.5, canvas.height - 5);
+  ctx.fillText('High', canvas.width * 0.75, canvas.height - 5);
+}
+
+// Draw initial empty state
+drawSpectrum([]);

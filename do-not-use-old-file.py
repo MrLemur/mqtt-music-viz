@@ -58,7 +58,37 @@ devices = [
         "mode": "reactive",  # 'reactive' or 'flash'
         "flash_colour": "255,0,0",  # Colour for flash mode
         "freq_ranges": [{"min": 20, "max": 20000}],  # Multiple ranges
-    }
+    },
+    {
+        "id": "hall_light_2",
+        "name": "Hall Light 2",
+        "topic": "zigbee2mqtt/Hall Light 2/set",
+        "type": "zigbee",
+        "enabled": True,
+        "mode": "reactive",  # 'reactive' or 'flash'
+        "flash_colour": "255,0,0",  # Colour for flash mode
+        "freq_ranges": [{"min": 20, "max": 20000}],  # Multiple ranges
+    },
+    {
+        "id": "hall_light_3",
+        "name": "Hall Light 3",
+        "topic": "zigbee2mqtt/Hall Light 3/set",
+        "type": "zigbee",
+        "enabled": True,
+        "mode": "reactive",  # 'reactive' or 'flash'
+        "flash_colour": "255,0,0",  # Colour for flash mode
+        "freq_ranges": [{"min": 20, "max": 20000}],  # Multiple ranges
+    },
+    {
+        "id": "star_light",
+        "name": "Star Light",
+        "topic": "zigbee2mqtt/Star Light/set",
+        "type": "zigbee",
+        "enabled": True,
+        "mode": "reactive",  # 'reactive' or 'flash'
+        "flash_colour": "255,0,0",  # Colour for flash mode
+        "freq_ranges": [{"min": 20, "max": 20000}],  # Multiple ranges
+    },
 ]
 
 def log_and_emit(level, message, data=None):
@@ -144,7 +174,7 @@ def get_device_config(device_type, colour, turn_off=False):
              return json.dumps(
             {
                 "state": "ON",
-                "brightness": 255,
+                "brightness": 150,
                 "transition": 0.000000001,
                 "color_temp": "500"
             }
@@ -153,7 +183,7 @@ def get_device_config(device_type, colour, turn_off=False):
              return json.dumps(
             {
                 "state": "ON",
-                "brightness": 255,
+                "brightness": 150,
                 "transition": 0.000000001,
                 "color": {"rgb": colour},
             }
@@ -279,7 +309,7 @@ def run():
                 # Handle different modes
                 if device['mode'] == 'flash':
                     # Flash mode: turn on, will be turned off by timeout
-                      colour = device.get('flash_colour', '255,255,255')
+                    colour = device.get('flash_colour', '255,255,255')
                     
                     client.publish(
                         device["topic"], 

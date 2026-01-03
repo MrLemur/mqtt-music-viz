@@ -1,0 +1,108 @@
+[
+  {
+    "id": "tv_light_1",
+    "name": "TV Light 1",
+    "topic": "zigbee2mqtt/TV Light 1/set",
+    "type": "zigbee",
+    "enabled": true,
+    "brightness": 173,
+    "mode": "reactive",
+    "flash_colour": "255,255,255",
+    "flash_random": false,
+    "flash_cooldown": 0.0,
+    "freq_ranges": [
+      {
+        "min": 20,
+        "max": 20000
+      }
+    ]
+  },
+  {
+    "id": "tv_light_2",
+    "name": "TV Light 2",
+    "topic": "zigbee2mqtt/TV Light 2/set",
+    "type": "zigbee",
+    "enabled": true,
+    "brightness": 175,
+    "mode": "reactive",
+    "flash_colour": "255,255,255",
+    "flash_random": false,
+    "flash_cooldown": 0.0,
+    "freq_ranges": [
+      {
+        "min": 20,
+        "max": 20000
+      }
+    ]
+  },
+  {
+    "id": "hall_light_2",
+    "name": "Hall Light 2",
+    "topic": "zigbee2mqtt/Hall Light 2/set",
+    "type": "zigbee",
+    "enabled": true,
+    "brightness": 255,
+    "mode": "flash",
+    "flash_colour": "255,255,255",
+    "flash_random": false,
+    "flash_cooldown": 0.2,
+    "freq_ranges": [
+      {
+        "min": 20,
+        "max": 60
+      },
+      {
+        "max": 100,
+        "min": 20
+      }
+    ]
+  },
+  {
+    "id": "hall_light_3",
+    "name": "Hall Light 3",
+    "topic": "zigbee2mqtt/Hall Light 3/set",
+    "type": "zigbee",
+    "enabled": true,
+    "brightness": 255,
+    "mode": "flash",
+    "flash_colour": "255,255,255",
+    "flash_random": false,
+    "flash_cooldown": 0.2,
+    "freq_ranges": [
+      {
+        "min": 20,
+        "max": 60
+      },
+      {
+        "max": 100,
+        "min": 20
+      }
+    ]
+  },
+  {
+    "id": "star_light",
+    "name": "Star Light",
+    "topic": "zigbee2mqtt/Star Light/set",
+    "type": "zigbee",
+    "enabled": true,
+    "brightness": 175,
+    "mode": "reactive",
+    "flash_colour": "255,255,255",
+    "flash_random": false,
+    "flash_cooldown": 0.0,
+    "freq_ranges": [
+      {
+        "min": 20,
+        "max": 60
+      },
+      {
+        "min": 60,
+        "max": 250
+      },
+      {
+        "min": 20,
+        "max": 20000
+      }
+    ]
+  }
+]

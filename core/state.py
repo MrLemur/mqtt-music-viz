@@ -27,6 +27,7 @@ class AppState:
             'beat_threshold': 0.01,
             'min_volume': 0.005,
             'flash_duration': 0.3,
+            'flash_guard_enabled': True,
         }
         self.stats = {
             'beats_detected': 0,
@@ -39,6 +40,7 @@ class AppState:
         self._last_publish_time = {}  # device_id -> timestamp
         self._last_colours = {}  # device_id -> colour
         self._flash_states = {}  # device_id -> {'flash_time': timestamp, 'is_on': bool}
+        self._last_flash_time = {}  # device_id -> timestamp
         self._socketio = None
         self._executor = ThreadPoolExecutor(max_workers=20, thread_name_prefix="device_worker")
     
@@ -60,9 +62,11 @@ class AppState:
                     'topic': d.topic,
                     'type': d.type,
                     'enabled': d.enabled,
+                    'brightness': d.brightness,
                     'mode': d.mode,
                     'flash_colour': d.flash_colour,
                     'flash_random': d.flash_random,
+                    'flash_cooldown': d.flash_cooldown,
                     'freq_ranges': d.freq_ranges,
                 }
                 for d in app_config.devices
@@ -73,6 +77,7 @@ class AppState:
                 'debug': app_config.app.debug,
                 'min_publish_interval': app_config.app.min_publish_interval,
                 'flash_duration': app_config.app.flash_duration,
+                'flash_guard_enabled': app_config.app.flash_guard_enabled,
                 'beat_threshold': app_config.audio.beat_threshold,
                 'min_volume': app_config.audio.min_volume,
             })
@@ -84,6 +89,7 @@ class AppState:
                 channels=app_config.audio.channels,
                 min_volume=app_config.audio.min_volume,
                 beat_threshold=app_config.audio.beat_threshold,
+                spectrum_callback=self._send_spectrum_data,
             )
             
             # Store MQTT manager
@@ -118,6 +124,7 @@ class AppState:
             debug=self.config.get('debug', False),
             min_publish_interval=self.config.get('min_publish_interval', 0.1),
             flash_duration=self.config.get('flash_duration', 0.3),
+            flash_guard_enabled=self.config.get('flash_guard_enabled', True),
         )
         
         # Devices from current state
@@ -128,9 +135,11 @@ class AppState:
                 topic=d['topic'],
                 type=d.get('type', 'zigbee'),
                 enabled=d.get('enabled', True),
+                brightness=d.get('brightness', 155),
                 mode=d.get('mode', 'reactive'),
                 flash_colour=d.get('flash_colour', '255,0,0'),
                 flash_random=d.get('flash_random', False),
+                flash_cooldown=d.get('flash_cooldown', 0.0),
                 freq_ranges=d.get('freq_ranges', [{'min': 20, 'max': 20000}])
             )
             for d in self.devices
@@ -174,7 +183,11 @@ class AppState:
         with self._lock:
             for device in self.devices:
                 if device['enabled'] and self.mqtt_manager:
-                    payload = get_device_config(device['type'], 'white')
+                    payload = get_device_config(
+                        device['type'],
+                        'white',
+                        brightness=device.get('brightness', 155)
+                    )
                     self.mqtt_manager.publish_device_state(device['topic'], payload)
         
         self._emit_log('info', 'System stopped, lights set to white')
@@ -276,6 +289,17 @@ class AppState:
         
         # Handle device mode
         if device['mode'] == 'flash':
+            if self.config.get('flash_guard_enabled', True):
+                flash_state = self._flash_states.get(device_id)
+                if flash_state and flash_state.get('is_on'):
+                    return
+                cooldown = float(device.get('flash_cooldown', 0.0) or 0.0)
+                last_flash_time = self._last_flash_time.get(device_id)
+                if cooldown > 0 and last_flash_time is not None:
+                    if current_time - last_flash_time < cooldown:
+                        return
+
+        if device['mode'] == 'flash':
             self._handle_flash_mode(device, frequency, volume, current_time)
         else:
             self._handle_reactive_mode(device, frequency, volume, current_time)
@@ -298,13 +322,18 @@ class AppState:
             colour_name = 'FLASH'
         
         if self.mqtt_manager:
-            payload = get_device_config(device['type'], colour)
+            payload = get_device_config(
+                device['type'],
+                colour,
+                brightness=device.get('brightness', 155)
+            )
             self.mqtt_manager.publish_device_state(device['topic'], payload)
-        
+
         self._flash_states[device_id] = {
             'flash_time': current_time,
             'is_on': True
         }
+        self._last_flash_time[device_id] = current_time
         
         self._emit_log('info', f'{device["name"]}: {colour_name} (freq: {frequency:.0f}Hz)')
         
@@ -329,7 +358,11 @@ class AppState:
         self._emit_log('info', f'{device["name"]}: {colour["name"]} (freq: {frequency:.0f}Hz)')
         
         if self.mqtt_manager:
-            payload = get_device_config(device['type'], colour['rgb'])
+            payload = get_device_config(
+                device['type'],
+                colour['rgb'],
+                brightness=device.get('brightness', 155)
+            )
             self.mqtt_manager.publish_device_state(device['topic'], payload)
         
         if self._socketio:
@@ -371,6 +404,14 @@ class AppState:
                 'level': level,
                 'message': message,
                 'data': data,
+                'timestamp': time()
+            })
+    
+    def _send_spectrum_data(self, spectrum: list):
+        """Send audio spectrum data to connected clients."""
+        if self._socketio:
+            self._socketio.emit('audio_spectrum', {
+                'spectrum': spectrum,
                 'timestamp': time()
             })
 

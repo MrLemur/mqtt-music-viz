@@ -4,6 +4,7 @@ Loads settings from `config.yaml` (if present) and environment variables as
 fallbacks. Provides simple dataclasses for typed access and validation.
 """
 from dataclasses import dataclass
+import json
 import os
 from typing import Any
 
@@ -20,6 +21,27 @@ def _load_yaml(path: str) -> dict[str, Any]:
         return {}
     with open(path, "r", encoding="utf-8") as fh:
         return yaml.safe_load(fh) or {}
+
+
+DEVICES_CONFIG_PATH = "devices.json"
+
+
+def _load_devices_json(path: str = DEVICES_CONFIG_PATH) -> list[dict[str, Any]] | None:
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as fh:
+        try:
+            data = json.load(fh)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(data, list):
+        return None
+    return data
+
+
+def save_devices_config(devices: list[dict[str, Any]], path: str = DEVICES_CONFIG_PATH) -> None:
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(devices, fh, indent=2, sort_keys=False)
 
 
 @dataclass
@@ -44,6 +66,7 @@ class AppSettings:
     debug: bool = False
     min_publish_interval: float = 0.1
     flash_duration: float = 0.3
+    flash_guard_enabled: bool = True
 
 
 @dataclass
@@ -53,9 +76,11 @@ class DeviceConfig:
     topic: str
     type: str = "zigbee"
     enabled: bool = True
+    brightness: int = 155
     mode: str = "reactive"
     flash_colour: str = "255,0,0"
     flash_random: bool = False
+    flash_cooldown: float = 0.0
     freq_ranges: list[dict[str, int]] = None
 
     def __post_init__(self):
@@ -77,7 +102,7 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     mqtt_data = data.get("mqtt", {})
     audio_data = data.get("audio", {})
     app_data = data.get("app", {})
-    devices_data = data.get("devices", [])
+    devices_data = _load_devices_json() or data.get("devices", [])
 
     # Environment fallbacks
     mqtt = MQTTConfig(
@@ -99,6 +124,7 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         debug=app_data.get("debug", AppSettings.debug),
         min_publish_interval=float(app_data.get("min_publish_interval", AppSettings.min_publish_interval)),
         flash_duration=float(app_data.get("flash_duration", AppSettings.flash_duration)),
+        flash_guard_enabled=bool(app_data.get("flash_guard_enabled", AppSettings.flash_guard_enabled)),
     )
 
     devices = [
@@ -108,9 +134,11 @@ def load_config(path: str = "config.yaml") -> AppConfig:
             topic=d["topic"],
             type=d.get("type", "zigbee"),
             enabled=d.get("enabled", True),
+            brightness=int(d.get("brightness", 155)),
             mode=d.get("mode", "reactive"),
             flash_colour=d.get("flash_colour", "255,0,0"),
             flash_random=d.get("flash_random", False),
+            flash_cooldown=float(d.get("flash_cooldown", 0.0)),
             freq_ranges=d.get("freq_ranges", [{"min": 20, "max": 20000}])
         )
         for d in devices_data
@@ -149,6 +177,7 @@ def save_config(config: AppConfig, path: str = "config.yaml") -> None:
             "debug": config.app.debug,
             "min_publish_interval": config.app.min_publish_interval,
             "flash_duration": config.app.flash_duration,
+            "flash_guard_enabled": config.app.flash_guard_enabled,
         },
         "devices": [
             {
@@ -157,8 +186,11 @@ def save_config(config: AppConfig, path: str = "config.yaml") -> None:
                 "topic": d.topic,
                 "type": d.type,
                 "enabled": d.enabled,
+                "brightness": d.brightness,
                 "mode": d.mode,
                 "flash_colour": d.flash_colour,
+                "flash_random": d.flash_random,
+                "flash_cooldown": d.flash_cooldown,
                 "freq_ranges": d.freq_ranges,
             }
             for d in config.devices

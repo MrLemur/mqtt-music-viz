@@ -25,12 +25,15 @@ class AudioProcessor:
     channels: int = 1
     min_volume: float = 0.005
     beat_threshold: float = 0.01
+    spectrum_callback: Callable[[list], None] | None = None
     
     def __post_init__(self):
         self._running = Event()
         self._stream = None
         self._tempo_detect = None
         self._pitch_detect = None
+        self._last_spectrum_time = 0.0
+        self._spectrum_interval = 0.05  # Send spectrum every 50ms
         
         if HAS_AUBIO:
             hop_size = self.buffer_size // 2
@@ -59,6 +62,22 @@ class AudioProcessor:
                 
                 # Calculate volume
                 volume = float(np.sum(samples ** 2) / len(samples))
+                
+                # Send spectrum data for visualization
+                if self.spectrum_callback:
+                    import time as time_module
+                    current_time = time_module.time()
+                    if current_time - self._last_spectrum_time >= self._spectrum_interval:
+                        self._last_spectrum_time = current_time
+                        try:
+                            # Calculate FFT for spectrum visualization
+                            fft = np.abs(np.fft.rfft(samples))
+                            # Normalize and take first 100 bins for visualization
+                            max_val = np.max(fft) if np.max(fft) > 0 else 1.0
+                            spectrum = (fft[:100] / max_val).tolist()
+                            self.spectrum_callback(spectrum)
+                        except Exception as e:
+                            logger.error(f"Error sending spectrum data: {e}")
                 
                 # Volume gate
                 if volume < self.min_volume:

@@ -110,15 +110,29 @@ def frequency_in_ranges(freq: float, ranges: List[Dict[str, float]]) -> bool:
     return False
 
 
-def get_device_config(device_type: str, colour: str, turn_off: bool = False) -> str:
+def get_device_config(device_type: str, colour: str, brightness: int = 255, turn_off: bool = False) -> str:
     """Generate MQTT payload for device based on type and colour."""
+    brightness_value = 255
+    try:
+        brightness_value = int(brightness)
+    except (TypeError, ValueError):
+        brightness_value = 255
+    brightness_value = max(1, min(255, brightness_value))
+
     if device_type == "tasmota":
+        tasmota_dimmer = max(1, min(100, round(brightness_value / 255 * 100)))
         if turn_off:
             return "NoDelay;Power1 OFF"
         elif colour == "white":
-            return "NoDelay;Fade 0;NoDelay;Speed 1;NoDelay;Power1 ON;NoDelay;CT 500"
+            return (
+                "NoDelay;Fade 0;NoDelay;Speed 1;NoDelay;Power1 ON;"
+                f"NoDelay;Dimmer {tasmota_dimmer};NoDelay;CT 500"
+            )
         else:
-            return f"NoDelay;Fade 0;NoDelay;Speed 1;NoDelay;Dimmer 100;NoDelay;Color2 {colour}"
+            return (
+                "NoDelay;Fade 0;NoDelay;Speed 1;"
+                f"NoDelay;Dimmer {tasmota_dimmer};NoDelay;Color2 {colour}"
+            )
     
     elif device_type == "zigbee":
         if turn_off:
@@ -126,13 +140,14 @@ def get_device_config(device_type: str, colour: str, turn_off: bool = False) -> 
         elif colour == "white":
             return json.dumps({
                 "state": "ON",
-                "brightness": 255,
+                "brightness": brightness_value,
                 "transition": 0.0001,
                 "color_temp": "500"
             })
         else:
             return json.dumps({
                 "state": "ON",
+                "brightness": brightness_value,
                 "transition": 0.0001,
                 "color": {"rgb": colour},
             })

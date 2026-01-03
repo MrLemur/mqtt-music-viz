@@ -5,8 +5,25 @@ from flask import current_app, jsonify, request, render_template
 from . import bp
 from core.devices import FREQ_PRESETS
 from core.state import get_state
+from config import save_devices_config
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_brightness(value, default=155) -> int:
+    try:
+        brightness = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, min(255, brightness))
+
+
+def _normalize_flash_cooldown(value, default=0.0) -> float:
+    try:
+        cooldown = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0.0, cooldown)
 
 
 @bp.route("/", methods=["GET"])
@@ -38,15 +55,18 @@ def create_device():
             'topic': data['topic'],
             'type': data.get('type', 'zigbee'),
             'enabled': data.get('enabled', True),
+            'brightness': _normalize_brightness(data.get('brightness', 155)),
             'mode': data.get('mode', 'reactive'),
             'flash_colour': data.get('flash_colour', data.get('flash_color', '255,255,255')),
             'flash_random': data.get('flash_random', False),
+            'flash_cooldown': _normalize_flash_cooldown(data.get('flash_cooldown', 0.0)),
             'freq_ranges': data.get('freq_ranges', [{'min': 20, 'max': 20000}]),
         }
         
         # Add to state manager
         state = get_state()
         state.devices.append(device)
+        save_devices_config(state.devices)
         
         # Emit update to all connected clients
         if state._socketio:
@@ -82,15 +102,19 @@ def update_device(device_id):
             'topic': data.get('topic', device['topic']),
             'type': data.get('type', device['type']),
             'enabled': data.get('enabled', device['enabled']),
+            'brightness': _normalize_brightness(data.get('brightness', device.get('brightness', 155))),
             'mode': data.get('mode', device.get('mode', 'reactive')),
             'flash_colour': data.get('flash_colour', data.get('flash_color', device.get('flash_colour', '255,255,255'))),
             'flash_random': data.get('flash_random', device.get('flash_random', False)),
+            'flash_cooldown': _normalize_flash_cooldown(data.get('flash_cooldown', device.get('flash_cooldown', 0.0))),
             'freq_ranges': data.get('freq_ranges', device['freq_ranges']),
         })
         
         # Emit update to all connected clients
         if state._socketio:
             state._socketio.emit('devices_updated', state.devices)
+
+        save_devices_config(state.devices)
         
         logger.info(f"Device updated: {device['name']} (mode: {device['mode']}, flash_colour: {device.get('flash_colour')})")
         return jsonify(device)
@@ -114,6 +138,8 @@ def delete_device(device_id):
         # Emit update to all connected clients
         if state._socketio:
             state._socketio.emit('devices_updated', state.devices)
+
+        save_devices_config(state.devices)
         
         logger.info(f"Device deleted: {device_id}")
         return jsonify({"status": "deleted"})
@@ -159,6 +185,8 @@ def update_config():
         
         if 'debug' in data:
             state.config['debug'] = bool(data['debug'])
+        if 'flash_guard_enabled' in data:
+            state.config['flash_guard_enabled'] = bool(data['flash_guard_enabled'])
         
         logger.info(f"Configuration updated: {data}")
         return jsonify({"status": "ok", "config": state.config})

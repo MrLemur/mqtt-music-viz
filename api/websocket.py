@@ -61,3 +61,8 @@ def emit_devices_updated(devices: list):
 def emit_stats(stats: dict):
     """Emit statistics update to all connected clients."""
     socketio.emit('stats', stats)
+
+
+def emit_audio_spectrum(spectrum_data: list):
+    """Emit audio spectrum data for visualization."""
+    socketio.emit('audio_spectrum', {'spectrum': spectrum_data, 'timestamp': time()})
